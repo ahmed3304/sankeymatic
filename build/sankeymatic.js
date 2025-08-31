@@ -2007,6 +2007,16 @@ glob.process_sankey = () => {
   let [maxDecimalPlaces, maxNodeIndex, maxNodeVal] = [0, 0, 0];
   const uniqueNodes = new Map();
 
+  /**
+   * Format a code example consistently
+   * @param {string} attr
+   * @param {string} val
+   * @returns {string} html
+   */
+  function codeExample(attr, val) {
+    return `<code><strong>${attr}</strong> <em>${val}</em></code>`;
+  }
+
   // Update the display of all known themes given their offsets:
   function updateColorThemeDisplay() {
     // template string for the color swatches:
@@ -2132,7 +2142,7 @@ style="background-color: ${swRGB};">&nbsp;</span>`
     delete nodeParams.name;
     delete nodeParams.sourceRow;
 
-    // If there's a color, it could take multiple forms:
+    // If there's a custom COLOR, it could take multiple forms:
     if (nodeParams.color) {
       if (reBareColor.test(nodeParams.color)) {
         // If it's a raw RGB, put back the #:
@@ -2146,10 +2156,31 @@ style="background-color: ${swRGB};">&nbsp;</span>`
       ) {
         warnAbout(
           nodeParams.color,
-          `Could not interpret as a <code>color</code> value`
+          'Could not interpret as a <code>color</code> value'
         );
         delete nodeParams.color;
       }
+    }
+
+    // PAINT: Should the Node's color be copied to flows around it?
+    if (nodeParams.paint) {
+      switch (nodeParams.paint.toLowerCase()) {
+        case 'all':
+          nodeParams.paintInputs = [PAINT_BEFORE, PAINT_AFTER]; break;
+        case 'before':
+          nodeParams.paintInputs = [PAINT_BEFORE]; break;
+        case 'after':
+          nodeParams.paintInputs = [PAINT_AFTER]; break;
+        case 'none':
+          nodeParams.paintInputs = []; break;
+        default:
+          warnAbout(
+            nodeParams.paint,
+            `${codeExample('.paint', 'value')} must match one of:
+<code>before</code>, <code>after</code>, <code>all</code>, <code>none</code>`
+          );
+      }
+      delete nodeParams.paint;
     }
 
     // Is the user providing a custom label?
@@ -2310,20 +2341,20 @@ ${unquotingResult.message}`
       } else if (origSettingName.substring(0, 5) === `${NODE_OBJ} `) {
         // A node declaration was attempted, but there were spaces:
         const nodeWarningStem
-          = `<code><strong>node</strong> <em>ID</em></code> lines
-may not have spaces in <em>ID</em>.<br>&nbsp;`,
+          = `${codeExample('node', 'ID')} lines
+may not have spaces in <code><em>ID</em></code>.<br>&nbsp;`,
           testForColor = ':' + lineIn;
         if (testForColor.match(reNodeLineLoose)) {
           warnAbout(
             lineIn,
-            `${nodeWarningStem}Use <code><strong>.color</strong> <em>value</em></code> to set the color`
+            `${nodeWarningStem}Use ${codeExample('.color', 'value')}
+to set the color`
           );
         } else {
           warnAbout(
             lineIn,
-            `${nodeWarningStem}Use
-  <code><strong>.label</strong> <em>display name</em></code>
-  or <code><strong>:</strong><em>node name #color</em></code>`
+            `${nodeWarningStem}Use ${codeExample('.label', 'display name')}
+or <code><strong>:</strong><em>node name #color</em></code>`
           );
         }
       } else {
@@ -2462,8 +2493,7 @@ ${escapeHTML(lineIn)}`
           `Attribute type <code>${attrName}</code> is not valid for Nodes`
         );
       } else if (currentObject.type === NODE_OBJ) {
-        // TODO: Verify the syntax of the value
-        // Apply the new value to the existing object:
+        // Apply the new Attribute to the existing object:
         updateNodeAttrs({
           name: currentObject.name,
           [attrName]: attrValue,
@@ -2711,8 +2741,8 @@ ${escapeHTML(ef.target.logName ?? ef.target.tipName)}${unknownMsg}`
     .sort((a, b) => a.sourceRow - b.sourceRow)
     .forEach((n) => {
       // Set up color inheritance signals from '<<' and '>>' indicators:
-      const paintL = n.paintInputs.some((s) => s === '<<'),
-        paintR = n.paintInputs.some((s) => s === '>>');
+      const paintL = n.paintInputs.some((s) => s === PAINT_BEFORE),
+        paintR = n.paintInputs.some((s) => s === PAINT_AFTER);
       // If the graph is reversed, swap the directions:
       n.paint = {
         [BEFORE]: graphIsReversed ? paintR : paintL,
@@ -2985,6 +3015,7 @@ glob.process_sankey();
 // Make the linter happy about imported objects:
 /* global
  d3 canvg global IN OUT BEFORE AFTER MAXBREAKPOINT NODE_OBJ
+ PAINT_BEFORE PAINT_AFTER
  sampleDiagramRecipes fontMetrics highlightStyles cssColors
  settingsMarker settingsAppliedPrefix settingsToBackfill
  userDataMarker sourceHeaderPrefix sourceURLLine

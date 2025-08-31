@@ -126,19 +126,27 @@ labels relativesize 100
  magnify 100
 `,
 
-  // Node definitions:
-  NODE_OBJ = 'node', // for easy referencing
-  // - Loose: ":my node name #color <<""
-  reNodeLineLoose
-    = /^:(.+) #([a-f0-9]{0,6})?(\.\d{1,4})?\s*(>>|<<)*\s*(>>|<<)*$/i,
+  // Node constant definitions for easy referencing:
+  NODE_OBJ = 'node',
+  PAINT_BEFORE = '<<',
+  PAINT_AFTER = '>>',
+  // - Loose: ":my node name #color << >>""
+  reNodeLineLoose = new RegExp(
+    `^:(.+) #([a-f0-9]{0,6})?(\\.\d{1,4})?\\s*\
+(${PAINT_BEFORE}|${PAINT_AFTER})?\\s*(${PAINT_BEFORE}|${PAINT_AFTER})?$`,
+    'i'
+  ),
   // - Strict: "node myNodeName" (no spaces or dots), then attribute lines
   reNodeLineStrict = new RegExp(`^${NODE_OBJ}\\s+([^ .]+)$`,'i'),
 
   // Attribute lines look like: ".command value"
   // Examples: .label "", (future:) .color lightseagreen, .minvalue 1000
   reAttributeLine = /^\.([a-z]+)\s+(.+)$/i,
+
   // validAttributes map: skmObjectType => Set([valid attribute strings])
-  validAttributes = new Map([[NODE_OBJ, new Set(['label', 'color'])]]),
+  validAttributes = new Map([
+    [NODE_OBJ, new Set(['label', 'color', 'paint'])],
+  ]),
 
   reFlowTargetWithSuffix = /^(.+)\s+(#\S+)$/,
 
