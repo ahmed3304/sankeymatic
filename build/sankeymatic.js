@@ -2132,10 +2132,24 @@ style="background-color: ${swRGB};">&nbsp;</span>`
     delete nodeParams.name;
     delete nodeParams.sourceRow;
 
-    // If there's a color and it's a color CODE, put back the #:
-    // TODO: honor or translate color names?
-    if (reBareColor.test(nodeParams.color)) {
-      nodeParams.color = `#${nodeParams.color}`;
+    // If there's a color, it could take multiple forms:
+    if (nodeParams.color) {
+      if (reBareColor.test(nodeParams.color)) {
+        // If it's a raw RGB, put back the #:
+        nodeParams.color = `#${nodeParams.color}`;
+      } else if (
+        // Any other color spec should match one of these:
+        !cssColors.has(nodeParams.color.toLowerCase()) &&
+        !reRGBColor.test(nodeParams.color) &&
+        !reHSLColor.test(nodeParams.color) &&
+        !reOKLCHColor.test(nodeParams.color)
+      ) {
+        warnAbout(
+          nodeParams.color,
+          `Could not interpret as a <code>color</code> value`
+        );
+        delete nodeParams.color;
+      }
     }
 
     // Is the user providing a custom label?
@@ -2297,14 +2311,21 @@ ${unquotingResult.message}`
         // A node declaration was attempted, but there were spaces:
         const nodeWarningStem
           = `<code><strong>node</strong> <em>ID</em></code> lines
-may not have spaces in <em>ID</em>.<br>&nbsp;`;
-        // (We have a stem because more warning types are coming.)
-        warnAbout(
-          lineIn,
-          `${nodeWarningStem}Use
-<code><strong>.label</strong> <em>display name</em></code>
-or <code><strong>:</strong><em>node name #color</em></code>`
-        );
+may not have spaces in <em>ID</em>.<br>&nbsp;`,
+          testForColor = ':' + lineIn;
+        if (testForColor.match(reNodeLineLoose)) {
+          warnAbout(
+            lineIn,
+            `${nodeWarningStem}Use <code><strong>.color</strong> <em>value</em></code> to set the color`
+          );
+        } else {
+          warnAbout(
+            lineIn,
+            `${nodeWarningStem}Use
+  <code><strong>.label</strong> <em>display name</em></code>
+  or <code><strong>:</strong><em>node name #color</em></code>`
+          );
+        }
       } else {
         // No setting matched this name:
         warnAbout(origSettingName, 'Not a valid setting name');
@@ -2964,7 +2985,7 @@ glob.process_sankey();
 // Make the linter happy about imported objects:
 /* global
  d3 canvg global IN OUT BEFORE AFTER MAXBREAKPOINT NODE_OBJ
- sampleDiagramRecipes fontMetrics highlightStyles
+ sampleDiagramRecipes fontMetrics highlightStyles cssColors
  settingsMarker settingsAppliedPrefix settingsToBackfill
  userDataMarker sourceHeaderPrefix sourceURLLine
  skmSettings colorGray60 userInputsField breakpointField
@@ -2973,4 +2994,4 @@ glob.process_sankey();
  reAttributeLine validAttributes reNodeLineLoose reNodeLineStrict
  reMoveLine movesMarker
  reFlowTargetWithSuffix reColorPlusOpacity
- reBareColor reRGBColor LZString */
+ reBareColor reRGBColor reHSLColor reOKLCHColor LZString */
