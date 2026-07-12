@@ -2890,6 +2890,14 @@ title="${formattedSum} from ${flowCt} Flows: ${breakdown}"\
     differences = [],
     grandTotal = { [IN]: 0, [OUT]: 0 };
 
+  /**
+   * @param {number} v A number which may be close to 0 (but not 0)
+   * @returns {boolean} true if the value is more than epsilon away from 0
+   */
+  function isSignificant(v) {
+    return Math.abs(v) > epsilonDifference;
+  }
+
   // Look for imbalances in Nodes so we can respond to them:
   approvedNodes.forEach((n, i) => {
     // Note: After rendering, there are now more keys in the node records,
@@ -2900,7 +2908,7 @@ title="${formattedSum} from ${flowCt} Flows: ${breakdown}"\
       const difference = n.total[IN] - n.total[OUT];
       // Is there a difference big enough to matter? (i.e. > epsilon)
       // We'll always calculate this, even if not shown to the user.
-      if (Math.abs(difference) > epsilonDifference) {
+      if (isSignificant(difference)) {
         differences.push({
           name: n.name,
           total: { [IN]: explainSum(n, IN), [OUT]: explainSum(n, OUT) },
@@ -2965,7 +2973,7 @@ title="${formattedSum} from ${flowCt} Flows: ${breakdown}"\
 <strong>${approvedNodes.length} Nodes</strong>. `;
 
   // Do the totals match? If not, mention the different totals:
-  if (Math.abs(grandTotal[IN] - grandTotal[OUT]) > epsilonDifference) {
+  if (isSignificant(grandTotal[IN] - grandTotal[OUT])) {
     const gtLt = grandTotal[IN] > grandTotal[OUT] ? '&gt;' : '&lt;';
     totalsMsg
       += `Total Inputs: <strong>${withUnits(grandTotal[IN])}</strong> ${gtLt}
