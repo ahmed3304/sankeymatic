@@ -345,15 +345,36 @@ function scaledPNG(scale) {
   return [scaled, canvasEl.toDataURL('image/png')];
 }
 
-// downloadABlob: given an object & a filename, send it to the user:
-function downloadADataURL(dataURL, name) {
-  const newA = document.createElement('a');
+function dataURLToBlob(dataURL) {
+  const [header, base64str] = dataURL.split(','),
+    mimeType = header.match(/:(.*?);/)[1],
+    bytes = Uint8Array.from(atob(base64str), (c) => c.charCodeAt(0));
+
+  return new Blob([bytes], { type: mimeType });
+}
+
+// Keep at most one blobURL in memory:
+glob.previousBlobURL = null;
+
+// downloadADataURL: given an object & a filename, send it to the user:
+function downloadADataURL(dataURL, fileName) {
+  if (glob.previousBlobURL) {
+    URL.revokeObjectURL(glob.previousBlobURL);
+  }
+
+  const blob = dataURLToBlob(dataURL),
+    newBlobURL = URL.createObjectURL(blob),
+    newA = document.createElement('a');
+  glob.previousBlobURL = newBlobURL;
   newA.style.display = 'none';
-  newA.href = dataURL;
-  newA.download = name;
+  newA.href = newBlobURL;
+  newA.download = fileName;
   document.body.append(newA);
   newA.click(); // This kicks off the download
-  newA.remove(); // Discard the Anchor we just clicked; it's no longer needed
+  newA.remove(); // The Anchor we just clicked is no longer needed
+
+  // Extra insurance for clearing out large PNG blobs:
+  setTimeout(() => URL.revokeObjectURL(newBlobURL), 30000);
 }
 
 glob.saveDiagramAsPNG = (scale) => {
