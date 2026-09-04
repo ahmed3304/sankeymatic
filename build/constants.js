@@ -126,25 +126,63 @@ labels relativesize 100
  magnify 100
 `,
 
-  // Node definitions:
-  NODE_OBJ = 'node', // for easy referencing
-  // - Loose: ":my node name #color <<""
-  reNodeLineLoose
-    = /^:(.+) #([a-f0-9]{0,6})?(\.\d{1,4})?\s*(>>|<<)*\s*(>>|<<)*$/i,
+  // Node constant definitions for easy referencing:
+  NODE_OBJ = 'node',
+  PAINT_BEFORE = '<<',
+  PAINT_AFTER = '>>',
+  // - Loose: ":my node name #color << >>""
+  reNodeLineLoose = new RegExp(
+    `^:(.+) #([a-f0-9]{0,6})?(\\.\d{1,4})?\\s*\
+(${PAINT_BEFORE}|${PAINT_AFTER})?\\s*(${PAINT_BEFORE}|${PAINT_AFTER})?$`,
+    'i'
+  ),
   // - Strict: "node myNodeName" (no spaces or dots), then attribute lines
   reNodeLineStrict = new RegExp(`^${NODE_OBJ}\\s+([^ .]+)$`,'i'),
 
   // Attribute lines look like: ".command value"
   // Examples: .label "", (future:) .color lightseagreen, .minvalue 1000
   reAttributeLine = /^\.([a-z]+)\s+(.+)$/i,
+
   // validAttributes map: skmObjectType => Set([valid attribute strings])
-  validAttributes = new Map([[NODE_OBJ, new Set(['label'])]]),
+  validAttributes = new Map([
+    [NODE_OBJ, new Set(['label', 'color', 'paint'])],
+  ]),
 
   reFlowTargetWithSuffix = /^(.+)\s+(#\S+)$/,
 
   reColorPlusOpacity = /^#([a-f0-9]{3,6})?(\.\d{1,4})?$/i,
   reBareColor = /^(?:[a-f0-9]{3}|[a-f0-9]{6})$/i,
   reRGBColor = /^#(?:[a-f0-9]{3}|[a-f0-9]{6})$/i,
+  // reHSLColor = Match a typical HSL declaration.
+  // Minor flaw: This will accept spaces and then a comma separator for the
+  // optional Alpha value, which is invalid. The outcome will not be Bad --
+  // it'll just be a color spec that doesn't work until the user fixes it --
+  // so I'm not going to worry about splitting this into two distinct regexes.
+  reHSLColor
+    = new RegExp([
+      '^hsl\\(\\s*-?\\d+(?:\\.\\d+)?(?:deg|rad|turn)?', // hsl(Hue
+      '\\s*([, ])\\s*',          // [, ]
+      '-?\\d+(?:\\.\\d+)?\\%', // Saturation
+      '\\s*\\1\\s*',          // [, ]
+      '-?\\d+(?:\\.\\d+)?\\%', // Lightness
+      '(?:\\s*(?:,|\\/)\\s*-?\\d+(?:\\.\\d+)?%?)?\\s*\\)$'] // [Alpha])
+        .join(''),
+        'i'),
+  // reOKLCHColor = Match a typical oklch() declaration.
+  // Note: This only supports the Absolute syntax, not the Relative
+  // (e.g. 'from hsl(..)...'). It would *probably* be fine to allow pretty
+  // much anything in the parentheses, but I'm wary of being that permissive.
+  reOKLCHColor
+    = new RegExp([
+      '^oklch\\(\\s*', // oklch(
+      '(?:\\d{1,3}(?:\\.\\d+)?%|\\d(?:\\.\\d+)?)', // Perceived-Lightness
+      '\\s+',                            // (no commas)
+      '(?:\\d+(?:\\.\\d+)?)',            // Chroma
+      '\\s+',                            // (no commas)
+      '(?:-?\\d+(?:\\.\\d+)?(?:deg|rad|turn)?)', // Hue
+      '\\s*(?:\\/\\s*(?:\\d+(?:\\.\\d+)?%?))?\\s*\\)$'] // [/ Alpha])
+        .join(''),
+        'i'),
   colorGray60 = '#999',
 
   userInputsField = 'flows_in',
@@ -152,6 +190,31 @@ labels relativesize 100
 
   // Some prime constants for enum values:
   [IN, OUT, BEFORE, AFTER] = [13, 17, 19, 23],
+
+  // CSS named colors, from https://drafts.csswg.org/css-color-4/#named-colors
+  cssColors = new Set(`aliceblue antiquewhite aqua aquamarine azure beige \
+bisque black blanchedalmond blue blueviolet brown burlywood cadetblue \
+chartreuse chocolate coral cornflowerblue cornsilk crimson cyan \
+darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki \
+darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon \
+darkseagreen darkslateblue darkslategray darkslategrey darkturquoise \
+darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick \
+floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod \
+gray green greenyellow grey honeydew hotpink indianred indigo ivory \
+khaki lavender lavenderblush lawngreen lemonchiffon lightblue \
+lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen \
+lightgrey lightpink lightsalmon lightseagreen lightskyblue \
+lightslategray lightslategrey lightsteelblue lightyellow lime limegreen \
+linen magenta maroon mediumaquamarine mediumblue mediumorchid \
+mediumpurple mediumseagreen mediumslateblue mediumspringgreen \
+mediumturquoise mediumvioletred midnightblue mintcream mistyrose \
+moccasin navajowhite navy oldlace olive olivedrab orange orangered \
+orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip \
+peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown \
+royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver \
+skyblue slateblue slategray slategrey snow springgreen steelblue tan \
+teal thistle tomato turquoise violet wheat white whitesmoke yellow \
+yellowgreen`.split(' ')),
 
   // fontMetrics = measurements relating to labels & their highlights
   //   Structure:
